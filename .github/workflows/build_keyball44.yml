@@ -1,0 +1,20 @@
+name: Build Keyball44 KB2040 Firmware
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: ghcr.io/qmk/qmk_cli
+    steps:
+      - name: Disable safe.directory check
+        run: git config --global --add safe.directory '*'
+      - name: Checkout QMK Firmware
+        uses: actions/checkout@v4
+      - name: Deploy submodules
+        run: qmk git-submodule -f
+      - name: Build targeted firmware
+        run: qmk compile -e CONVERT_TO=kb2040 -kb keyball/keyball44 -km via
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyball44-firmware
+          path: '*.uf2'
