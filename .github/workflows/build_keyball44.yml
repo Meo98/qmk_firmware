@@ -16,7 +16,7 @@ jobs:
       - name: Deploy submodules
         run: qmk git-submodule -f
       - name: Build targeted firmware
-        run: qmk compile -e CONVERT_TO=kb2040 -kb keyball/keyball44 -km via
+        run: qmk compile -kb keyball/keyball44 -km via
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
