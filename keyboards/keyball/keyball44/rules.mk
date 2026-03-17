@@ -1,5 +1,6 @@
 # Link Time Optimization required for size.
 # LTO_ENABLE = yes
+CONVERT_TO = kb2040
 
 # Build Options
 BOOTMAGIC_ENABLE = no       # Enable Bootmagic Lite
