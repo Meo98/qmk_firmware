@@ -39,3 +39,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define AUTO_MOUSE_DEFAULT_LAYER 1
 
 #define DYNAMIC_KEYMAP_LAYER_COUNT 8
+
+// Single-half testing: trackball is on the right half
+// Remove this line when both halves are connected
+#define MASTER_RIGHT
