@@ -41,6 +41,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define DYNAMIC_KEYMAP_LAYER_COUNT 8
 
 // Scroll: lower divisor for smoother scrolling (2 instead of default 4)
-#define KEYBALL_SCROLL_DIV_DEFAULT 2
+#define KEYBALL_SCROLL_DIV_DEFAULT 1
 // Scroll: disable axis-lock for free diagonal scrolling
 #define KEYBALL_SCROLLSNAP_ENABLE 0
