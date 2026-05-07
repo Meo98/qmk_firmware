@@ -32,6 +32,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #    define KEYBALL_SCROLLBALL_INHIVITOR 50
 #endif
 
+#ifdef POINTING_DEVICE_HIRES_SCROLL_ENABLE
+#    ifndef KEYBALL_HIRES_SCROLL_SCALE
+#        define KEYBALL_HIRES_SCROLL_SCALE 8
+#    endif
+#endif
+
 /// To disable scroll snap feature, define 0 in your config.h
 #ifndef KEYBALL_SCROLLSNAP_ENABLE
 #    define KEYBALL_SCROLLSNAP_ENABLE 2

@@ -164,10 +164,20 @@ __attribute__((weak)) void keyball_on_apply_motion_to_mouse_scroll(report_mouse_
     int16_t x = divmod16(&report->x, div);
     int16_t y = divmod16(&report->y, div);
 
+#ifdef POINTING_DEVICE_HIRES_SCROLL_ENABLE
+    x *= KEYBALL_HIRES_SCROLL_SCALE;
+    y *= KEYBALL_HIRES_SCROLL_SCALE;
+#endif
+
     // apply to mouse report.
 #if KEYBALL_MODEL == 61 || KEYBALL_MODEL == 39 || KEYBALL_MODEL == 147 || KEYBALL_MODEL == 44
+#ifdef WHEEL_EXTENDED_REPORT
+    output->h = -x;
+    output->v = y;
+#else
     output->h = -clip2int8(x);
     output->v = clip2int8(y);
+#endif
     if (is_left) {
         output->h = -output->h;
         output->v = -output->v;
