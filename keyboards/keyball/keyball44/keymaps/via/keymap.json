@@ -1,0 +1,7 @@
+{
+    "keyboard": "keyball/keyball44",
+    "keymap": "via",
+    "modules": [
+        "drashna/pointing_device_accel"
+    ]
+}

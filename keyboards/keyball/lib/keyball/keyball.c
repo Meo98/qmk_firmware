@@ -161,8 +161,14 @@ __attribute__((weak)) void keyball_on_apply_motion_to_mouse_move(report_mouse_t 
 __attribute__((weak)) void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
     // consume motion of trackball.
     int16_t div = 1 << (keyball_get_scroll_div() - 1);
-    int16_t x = divmod16(&report->x, div);
-    int16_t y = divmod16(&report->y, div);
+    // Work on local copies: report_mouse_t is packed, and once
+    // MOUSE_EXTENDED_REPORT widens x/y to 16 bit, taking the address of a
+    // member trips -Werror=address-of-packed-member. The remainder that
+    // divmod16 writes back was discarded by motion_to_mouse() anyway.
+    mouse_xy_report_t rx = report->x;
+    mouse_xy_report_t ry = report->y;
+    int16_t x = divmod16(&rx, div);
+    int16_t y = divmod16(&ry, div);
 
 #ifdef POINTING_DEVICE_HIRES_SCROLL_ENABLE
     x *= KEYBALL_HIRES_SCROLL_SCALE;

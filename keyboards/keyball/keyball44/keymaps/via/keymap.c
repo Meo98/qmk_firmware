@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "quantum.h"
 
+#include <math.h>
+
 // clang-format off
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   // keymap for default (VIA)
@@ -80,6 +82,96 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   ),
 };
 // clang-format on
+
+// ---------------------------------------------------------------------------
+// Geschwindigkeitsabhaengige Scroll-Kurve
+// ---------------------------------------------------------------------------
+// Ersetzt die schwache Default-Implementierung der Keyball-Lib. Zwei
+// Unterschiede:
+//
+//   1. Float-Akkumulator statt Integer-Division. Die Lib wirft in
+//      motion_to_mouse() den Divisions-Rest weg (report->x = 0), wodurch
+//      alles unterhalb der Divisor-Schwelle ersatzlos verloren geht. Hier
+//      ueberlebt der Rest-Betrag den Poll-Zyklus, langsames Scrollen bleibt
+//      dadurch aufgeloest statt tot.
+//
+//   2. Sigmoid-Kurve auf der Ballgeschwindigkeit: langsames Rollen erzeugt
+//      kleine Schritte (Lesen), schnelles Rollen grosse (Navigieren).
+//
+// Die Geschwindigkeit wird wie bei maccel auf 1000 CPI normalisiert, damit
+// die Kurve bei jeder CPI-Einstellung gleich reagiert.
+
+static float    scr_acc_h  = 0.0f;  // Rest-Betrag horizontal (v120-Einheiten)
+static float    scr_acc_v  = 0.0f;  // Rest-Betrag vertikal
+static float    scr_vel    = 0.0f;  // geglaettete Geschwindigkeit
+static uint32_t scr_last   = 0;     // Zeitpunkt des letzten Bewegungs-Reports
+
+static inline float scr_sigmoid(float v) {
+    return 1.0f / (1.0f + expf(-SCR_GROWTH * (v - SCR_VEL_MID)));
+}
+
+void keyball_on_apply_motion_to_mouse_scroll(report_mouse_t *report, report_mouse_t *output, bool is_left) {
+    // Die Lib ruft diese Funktion einmal pro Haelfte auf; die ballfreie
+    // Seite liefert einen Null-Report, den wir nicht als Bewegung werten.
+    if (report->x == 0 && report->y == 0) {
+        return;
+    }
+
+    const uint32_t now = timer_read32();
+    const uint32_t dt  = TIMER_DIFF_32(now, scr_last);
+    scr_last           = now;
+
+    // Nach einer Pause faengt eine neue Geste an: alter Zustand verfaellt.
+    if (dt > SCR_IDLE_RESET_MS) {
+        scr_acc_h = 0.0f;
+        scr_acc_v = 0.0f;
+        scr_vel   = 0.0f;
+    }
+
+    const uint16_t cpi = keyball_get_cpi();
+
+    // Geschwindigkeit in Counts/ms, auf 1000 CPI normalisiert.
+    const float dist    = sqrtf((float)report->x * report->x + (float)report->y * report->y);
+    const float raw_vel = (1000.0f / (float)cpi) * dist / (float)(dt == 0 ? 1 : dt);
+
+    // Bei 1 ms Poll-Intervall ist dt nur 1 oder 2 -- die rohe Geschwindigkeit
+    // springt dadurch stark. Der gleitende Mittelwert laesst die Kurve der
+    // Hand folgen statt dem Quantisierungsrauschen.
+    scr_vel += SCR_VEL_SMOOTH * (raw_vel - scr_vel);
+
+    // Faktor 1.0 (bei Stillstand) bis SCR_GAIN_MAX (bei schnellem Rollen).
+    // Die Normalisierung auf sigmoid(0) sorgt dafuer, dass der Faktor unten
+    // tatsaechlich bei 1.0 startet und SCR_MM_PER_DETENT_SLOW stimmt.
+    const float s0   = scr_sigmoid(0.0f);
+    const float gain = 1.0f + (SCR_GAIN_MAX - 1.0f) * (scr_sigmoid(scr_vel) - s0) / (1.0f - s0);
+
+    // v120-Einheiten pro Sensor-Count, so dass bei gain == 1 genau
+    // SCR_MM_PER_DETENT_SLOW Millimeter Ballweg einen Rasterschritt ergeben.
+    // 120 Einheiten pro Rasterschritt, 25.4 mm pro Zoll.
+    float scale = (120.0f * 25.4f) / (SCR_MM_PER_DETENT_SLOW * (float)cpi);
+
+    // SCRL_DVI / SCRL_DVD bleiben als grobe Live-Stufe nutzbar.
+    scale /= (float)(1 << (keyball_get_scroll_div() - 1));
+
+    scale *= gain;
+
+    // Richtungswechsel: Rest-Betrag der Gegenrichtung verwerfen.
+    if ((float)report->x * scr_acc_h < 0.0f) scr_acc_h = 0.0f;
+    if ((float)report->y * scr_acc_v < 0.0f) scr_acc_v = 0.0f;
+
+    scr_acc_h += (float)report->x * scale;
+    scr_acc_v += (float)report->y * scale;
+
+    // Ganzzahligen Anteil senden, Nachkommastelle aufheben.
+    const int16_t h = (int16_t)scr_acc_h;
+    const int16_t v = (int16_t)scr_acc_v;
+    scr_acc_h -= (float)h;
+    scr_acc_v -= (float)v;
+
+    // Vorzeichen-Konvention der Keyball-Lib beibehalten.
+    output->h = is_left ? h : -h;
+    output->v = is_left ? -v : v;
+}
 
 layer_state_t layer_state_set_user(layer_state_t state) {
     // Auto enable scroll mode when the highest layer is 3
